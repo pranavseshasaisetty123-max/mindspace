@@ -16,7 +16,10 @@ graph TB
         Server[FastAPI App]
         AuthRouter[Auth Controller]
         JournalRouter[Journal CRUD Router]
+        ReflectionRouter[AI Reflection Router]
         JournalService[JournalService Layer]
+        ReflectionService[ReflectionService Layer]
+        GeminiService[Gemini API Client Service]
         DBConnection[SQLAlchemy Session manager]
         Crypt[Bcrypt Hashing / pyjwt Service]
     end
@@ -28,10 +31,11 @@ graph TB
     React -->|HTTPS REST API requests| Server
     Server --> AuthRouter
     Server --> JournalRouter
+    Server --> ReflectionRouter
     JournalRouter --> JournalService
-    JournalService --> DBConnection
-    AuthRouter --> Crypt
-    AuthRouter --> DBConnection
+    ReflectionRouter --> ReflectionService
+    ReflectionService --> GeminiService
+    ReflectionService --> DBConnection
     DBConnection -->|SQLAlchemy Async Query| MySQL
 ```
 
@@ -60,9 +64,9 @@ mindspace/
 │   ├── vite.config.ts
 │   ├── tailwind.config.js
 │   └── src/
-│       ├── components/        # Protected routes & UI helpers
+│       ├── components/        # Protected routes & skeleton loaders
 │       ├── contexts/          # Auth JWT Context API
-│       ├── pages/             # Login, Register, Dashboard, Editor, and Timeline Pages
+│       ├── pages/             # Dashboard, Editor, and Timeline Pages
 │       └── main.tsx
 └── backend/                   # FastAPI Web Application
     ├── Dockerfile
@@ -71,11 +75,11 @@ mindspace/
     ├── app/
     │   ├── config.py          # Settings validation
     │   ├── database.py        # SQLAlchemy connections
-    │   ├── models/            # SQLAlchemy DB entities (User, JournalEntry, Tag)
-    │   ├── schemas/           # Pydantic validation rules (User, Journal)
-    │   ├── routes/            # Register, login, profile, and journal controllers
-    │   ├── services/          # Hashing, JWT signature, and journal CRUD engines
-    │   └── tests/             # Async Pytest suite (Auth & Journaling tests)
+    │   ├── models/            # SQLAlchemy DB entities (User, JournalEntry, Tag, AIReflection)
+    │   ├── schemas/           # Pydantic validation rules (User, Journal, Reflection)
+    │   ├── routes/            # Auth, journal, and reflection controllers
+    │   ├── services/          # Hashing, JWT signature, journal CRUD, and AI reflection services
+    │   └── tests/             # Async Pytest suite (Auth, Journal, and AI tests)
     └── alembic/               # Schema evolution versioning
 ```
 
@@ -114,6 +118,15 @@ MindSpace utilizes a normalized relational schema. Indexes are established on fo
 * `entry_id` (INT, Foreign Key referencing `journal_entries(id)` ON DELETE CASCADE, Primary Key)
 * `tag_id` (INT, Foreign Key referencing `tags(id)` ON DELETE CASCADE, Primary Key)
 
+### Table: `ai_reflections`
+* `id` (INT, Primary Key, Auto-Increment)
+* `journal_id` (INT, Foreign Key referencing `journal_entries(id)` ON DELETE CASCADE, Unique, Indexed, Not Null) -- *One-to-one mapping*
+* `summary` (TEXT, Not Null)
+* `detected_patterns` (TEXT, Not Null) -- *Serialized JSON list of strings*
+* `reflection_question` (TEXT, Not Null)
+* `generated_at` (TIMESTAMP, Default: CURRENT_TIMESTAMP)
+* `model_used` (VARCHAR(50), Not Null) -- *e.g., 'gemini-1.5-flash' or 'safety_filter'*
+
 ---
 
 ## ⚙️ Environment Variables
@@ -126,6 +139,7 @@ The backend uses a `.env` file to manage configurations. Pydantic validates thes
 | `JWT_SECRET_KEY` | String | *Required* | Cryptographic salt used to sign JWT signatures. |
 | `JWT_ALGORITHM` | String | `HS256` | Encrypt signature hashing algorithm used. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Integer | `1440` | Token validity timeframe in minutes (24 hours). |
+| `GEMINI_API_KEY` | String | `mock-key-for-local-testing` | API Key used to call Google Gemini. Fallbacks mock-key locally for tests. |
 
 ---
 
@@ -141,6 +155,8 @@ The backend uses a `.env` file to manage configurations. Pydantic validates thes
 | **GET** | `/api/v1/journals/{id}` | Bearer Token | 200, 401, 403, 404 | Fetch individual entry. Validates user ownership. |
 | **PUT** | `/api/v1/journals/{id}` | Bearer Token | 200, 401, 403, 404, 422 | Modify entry text fields, metrics, or rebuild tag mappings. |
 | **DELETE** | `/api/v1/journals/{id}` | Bearer Token | 200, 401, 403, 404 | Soft delete entry (sets `deleted_at` timestamp). |
+| **POST** | `/api/v1/journals/{id}/generate-reflection` | Bearer Token | 200, 401, 403, 404, 502 | Trigger Google Gemini reflection insights generation (or update cache). |
+| **GET** | `/api/v1/journals/{id}/reflection` | Bearer Token | 200, 401, 403, 404 | Retrieve cached AI reflection, returns 404 if stale or missing. |
 
 ---
 

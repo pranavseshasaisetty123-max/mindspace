@@ -5,6 +5,8 @@ services:
     image: mysql:8.0
     container_name: mindspace_db
     restart: always
+    env_file:
+      - ./backend/.env
     environment:
       MYSQL_ROOT_PASSWORD: root_password_v1
       MYSQL_DATABASE: mindspace_db
@@ -28,11 +30,9 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/backend
-    environment:
-      - DATABASE_URL=mysql+aiomysql://mindspace_user:mindspace_password_v1@db:3306/mindspace_db
-      - JWT_SECRET_KEY=99a7707e7b6d194ee44e3962b9a76d8b3687e14d48d0859560f7df8f8a1a3641
-      - JWT_ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+    env_file:
+      - ./backend/.env
+
     depends_on:
       db:
         condition: service_healthy

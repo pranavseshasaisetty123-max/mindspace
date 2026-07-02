@@ -160,6 +160,8 @@ async def update_journal_entry(
             tag = await _get_or_create_tag(db, user_id, tag_name)
             tag_objects.append(tag)
         db_entry.tags = tag_objects
+        
+    db_entry.updated_at = datetime.now()
 
     await db.commit()
     

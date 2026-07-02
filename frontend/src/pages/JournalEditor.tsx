@@ -1,11 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth, api } from '../contexts/AuthContext';
-import { Brain, LogOut, ArrowLeft, Trash2, Sparkles, X, Plus, Check } from 'lucide-react';
+import { Brain, LogOut, ArrowLeft, Trash2, Sparkles, X, Plus, Check, ShieldAlert } from 'lucide-react';
 
 interface TagResponse {
   id: number;
   name: string;
+}
+
+interface AIReflection {
+  id: number;
+  journal_id: number;
+  summary: string;
+  detected_patterns: string[];
+  reflection_question: string;
+  generated_at: string;
+  model_used: string;
+  is_outdated?: boolean;
 }
 
 export const JournalEditor: React.FC = () => {
@@ -24,6 +35,11 @@ export const JournalEditor: React.FC = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
 
+  // AI Reflection states
+  const [reflection, setReflection] = useState<AIReflection | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [aiError, setAiError] = useState('');
+
   // UI state variables
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [loading, setLoading] = useState(false);
@@ -41,7 +57,7 @@ export const JournalEditor: React.FC = () => {
     setWordCount(words.length);
   }, [content]);
 
-  // Load existing entry
+  // Load existing entry & its cached AI reflection
   useEffect(() => {
     if (id) {
       setLoading(true);
@@ -57,14 +73,23 @@ export const JournalEditor: React.FC = () => {
           setSleep(Number(entry.sleep_hours));
           setTags(entry.tags.map((t: TagResponse) => t.name));
           setSavingStatus('saved');
+          
+          // Eager fetch existing reflection for this entry
+          return api.get(`/api/v1/journals/${entry.id}/reflection`);
+        })
+        .then((reflectionRes) => {
+          setReflection(reflectionRes.data);
         })
         .catch((err) => {
-          console.error("Failed to load journal details:", err);
-          navigate('/');
+          // If reflection query returns 404, it means it's not generated yet, which is expected!
+          if (err.response?.status === 404) {
+            setReflection(null);
+          } else {
+            console.error("Failed to load journal details or reflection:", err);
+          }
         })
         .finally(() => {
           setLoading(false);
-          // Wait briefly to prevent loading states triggering immediate auto-saves
           setTimeout(() => {
             isFirstRender.current = false;
           }, 100);
@@ -78,6 +103,8 @@ export const JournalEditor: React.FC = () => {
       setEnergy(3);
       setSleep(7.0);
       setTags([]);
+      setReflection(null);
+      setAiError('');
       setSavingStatus('idle');
       isFirstRender.current = false;
     }
@@ -103,7 +130,7 @@ export const JournalEditor: React.FC = () => {
   const triggerSave = async () => {
     if (!title.trim() && !content.trim()) {
       setSavingStatus('idle');
-      return;
+      return null;
     }
 
     const payload = {
@@ -119,15 +146,45 @@ export const JournalEditor: React.FC = () => {
     try {
       if (entryId) {
         await api.put(`/api/v1/journals/${entryId}`, payload);
+        setSavingStatus('saved');
+        return entryId;
       } else {
         const res = await api.post('/api/v1/journals', payload);
         setEntryId(res.data.id);
         window.history.replaceState(null, '', `/journal/${res.data.id}`);
+        setSavingStatus('saved');
+        return res.data.id;
       }
-      setSavingStatus('saved');
     } catch (err) {
       console.error("Autosave write failed:", err);
       setSavingStatus('error');
+      return null;
+    }
+  };
+
+  // AI reflection generator helper
+  const handleGenerateReflection = async () => {
+    setGenerating(true);
+    setAiError('');
+    try {
+      // First save changes so backend works with the latest drafts
+      const activeId = await triggerSave();
+      const targetId = entryId || activeId;
+
+      if (!targetId) {
+        setAiError("Please type a title or content before generating reflections.");
+        setGenerating(false);
+        return;
+      }
+
+      const res = await api.post(`/api/v1/journals/${targetId}/generate-reflection`);
+      setReflection(res.data);
+    } catch (err: any) {
+      console.error("AI Reflection Generation failed:", err);
+      const detail = err.response?.data?.detail || "AI reflection service currently unavailable. Please try again.";
+      setAiError(detail);
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -197,7 +254,7 @@ export const JournalEditor: React.FC = () => {
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-8 flex flex-col space-y-6 min-h-0 overflow-y-auto">
         
         {/* Editor controls bar */}
-        <div className="flex items-center justify-between border-b border-darkborder pb-4">
+        <div className="flex items-center justify-between border-b border-darkborder pb-4 shrink-0">
           <button
             onClick={() => navigate('/timeline')}
             className="text-xs text-gray-400 hover:text-gray-200 transition-colors flex items-center space-x-1"
@@ -250,7 +307,7 @@ export const JournalEditor: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col space-y-8 animate-fade-in">
+          <div className="flex-1 flex flex-col space-y-8 animate-fade-in pb-12">
             {/* Writing canvas */}
             <div className="flex flex-col space-y-4">
               <input
@@ -409,6 +466,115 @@ export const JournalEditor: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* AI Reflection Insights Card */}
+            {entryId && (
+              <div className="bg-darkcard border border-darkborder rounded-2xl p-6 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-darkborder/60 pb-3">
+                  <div className="flex items-center space-x-1.5 text-xs text-indigo-400 font-bold uppercase tracking-wider">
+                    <Sparkles className="h-4.5 w-4.5 text-indigo-400 animate-pulse shrink-0" />
+                    <span>MindSpace AI Reflection</span>
+                  </div>
+                  {reflection && (
+                    <span className="text-[10px] text-gray-500 font-medium">
+                      Model: {reflection.model_used}
+                    </span>
+                  )}
+                </div>
+
+                {generating ? (
+                  <div className="space-y-3 py-4 animate-pulse">
+                    <div className="h-4 bg-darkborder rounded w-1/3"></div>
+                    <div className="h-4 bg-darkborder rounded w-3/4"></div>
+                    <div className="h-4 bg-darkborder rounded w-1/2"></div>
+                  </div>
+                ) : aiError ? (
+                  <div className="p-4 border border-red-500/20 bg-red-950/10 rounded-xl text-xs text-red-400 space-y-2">
+                    <p className="font-semibold">Reflection generation failed</p>
+                    <p>{aiError}</p>
+                    <button
+                      onClick={handleGenerateReflection}
+                      className="text-indigo-400 hover:text-indigo-300 font-semibold underline block"
+                    >
+                      Retry generation
+                    </button>
+                  </div>
+                ) : reflection ? (
+                  <div className="space-y-4 animate-fade-in">
+                    
+                    {/* Crisis safefilter indicator support page */}
+                    {reflection.model_used === 'safety_filter' ? (
+                      <div className="p-4 border border-red-500/30 bg-red-950/15 rounded-xl space-y-3">
+                        <h4 className="text-sm font-bold text-red-400 flex items-center space-x-1.5">
+                          <ShieldAlert className="h-5 w-5 text-red-400 shrink-0" />
+                          <span>Support Helpline Resource</span>
+                        </h4>
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                          {reflection.summary}
+                        </p>
+                        <div className="p-3 bg-red-950/30 border border-red-500/10 rounded-lg text-xs font-serif italic text-red-300 leading-relaxed">
+                          {reflection.reflection_question}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {reflection.is_outdated && (
+                          <div className="p-3 border border-yellow-500/20 bg-yellow-950/10 rounded-xl text-xs text-yellow-500/90 leading-relaxed flex items-center space-x-2">
+                            <ShieldAlert className="h-4 w-4 text-yellow-500 shrink-0" />
+                            <span>AI service is temporarily busy. A fallback cached reflection has been displayed.</span>
+                          </div>
+                        )}
+                        <p className="text-sm text-gray-300 leading-relaxed font-sans">
+                          {reflection.summary}
+                        </p>
+
+                        <div className="space-y-2">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Detected Patterns & Emotions</span>
+                          <div className="flex flex-wrap gap-1">
+                            {reflection.detected_patterns.map((pattern: string, idx: number) => (
+                              <span
+                                key={idx}
+                                className="bg-indigo-950/40 border border-indigo-500/20 text-indigo-300 text-[10px] px-2.5 py-0.5 rounded-full"
+                              >
+                                {pattern}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="bg-indigo-900/10 border border-indigo-500/10 rounded-xl p-4 space-y-1.5">
+                          <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">Reflective Prompt</span>
+                          <p className="text-xs text-indigo-200 font-serif italic leading-relaxed">
+                            {reflection.reflection_question}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <button
+                            onClick={handleGenerateReflection}
+                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold underline focus:outline-none"
+                          >
+                            Re-analyze entry content
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-6 text-center space-y-3 max-w-sm mx-auto">
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      Analyze emotional highlights, trace habits, and receive open-ended reflection prompts.
+                    </p>
+                    <button
+                      onClick={handleGenerateReflection}
+                      className="bg-indigo-950/40 border border-indigo-500/20 hover:bg-indigo-900/40 text-indigo-300 font-semibold py-2 px-5 rounded-xl text-xs transition-colors btn-premium"
+                    >
+                      Generate Reflection Insights
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         )}

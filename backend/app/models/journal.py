@@ -43,3 +43,4 @@ class JournalEntry(Base):
     # Relationships
     user = relationship("User", back_populates="journals")
     tags = relationship("Tag", secondary=journal_tags, back_populates="entries")
+    reflection = relationship("AIReflection", back_populates="journal", uselist=False, cascade="all, delete-orphan")

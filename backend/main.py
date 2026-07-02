@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config import settings
 from app.routes.auth import router as auth_router
 from app.routes.journal import router as journal_router
+from app.routes.reflection import router as reflection_router
 
 # Setup structured logger
 logging.basicConfig(
@@ -24,14 +25,25 @@ logger = logging.getLogger("mindspace")
 async def lifespan(app: FastAPI):
     """Context manager controlling the lifecycle environment checks at boot."""
     logger.info("Initializing MindSpace API server bootstrap...")
-    # Environment variables are loaded and validated automatically by Pydantic Settings.
-    # We log a confirmation or raise a fail-fast error.
     try:
         db_url = settings.DATABASE_URL
         secret = settings.JWT_SECRET_KEY
         if not db_url or not secret:
             raise ValueError("Required DATABASE_URL or JWT_SECRET_KEY variables are empty.")
         logger.info("Server environment configurations successfully verified and validated.")
+        
+        # Verify Gemini settings
+        is_key_missing = (
+            not settings.GEMINI_API_KEY 
+            or settings.GEMINI_API_KEY.strip() == "" 
+            or settings.GEMINI_API_KEY == "mock-key-for-local-testing"
+        )
+        if settings.MOCK_AI or is_key_missing:
+            reason = "MOCK_AI=true" if settings.MOCK_AI else "GEMINI_API_KEY is missing"
+            logger.warning(f"WARNING: Running in MOCK mode because {reason}.")
+        else:
+            logger.info("✓ Gemini API Key Loaded")
+            logger.info(f"✓ Gemini Model: {settings.GEMINI_MODEL}")
     except Exception as e:
         logger.critical(f"Fail-Fast Error: Critical startup environment validation failed! Detail: {e}")
         raise e
@@ -54,9 +66,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount authentication and journal routers
+# Mount authentication, journal, and reflection routers
 app.include_router(auth_router)
 app.include_router(journal_router)
+app.include_router(reflection_router)
 
 # Centralized global exception handlers
 @app.exception_handler(StarletteHTTPException)
