@@ -1,7 +1,6 @@
-# MindSpace (Working Title)
+# 🧠 MindSpace
 
-An AI-powered private reflection and journaling platform designed to help students and young professionals express thoughts, build healthy reflection habits, and track emotional states over time without clinical diagnostics.
-
+An AI-powered private reflection and journaling platform that helps users build healthy reflection habits, understand emotional patterns, and receive AI-assisted insights while maintaining complete privacy.
 ---
 
 ## 🏗️ System Architecture
