@@ -43,3 +43,61 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-moz-range-thumb {
   @apply w-4 h-4 bg-indigo-500 rounded-full border border-indigo-400 cursor-pointer shadow-md transition-transform duration-150 hover:scale-125;
 }
+
+/* Light Theme Styling Overrides */
+body.theme-light {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+body.theme-light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+body.theme-light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+.theme-light .bg-darkcard {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+.theme-light .bg-darkbg {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+.theme-light .text-gray-100 {
+  color: #0f172a !important;
+}
+.theme-light .text-gray-200 {
+  color: #1e293b !important;
+}
+.theme-light .text-gray-300 {
+  color: #334155 !important;
+}
+.theme-light .text-gray-400 {
+  color: #64748b !important;
+}
+.theme-light .text-gray-500 {
+  color: #94a3b8 !important;
+}
+.theme-light .border-darkborder {
+  border-color: #e2e8f0 !important;
+}
+.theme-light input, 
+.theme-light textarea, 
+.theme-light select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Glassmorphism Theme Styling Overrides */
+body.theme-glass {
+  background: radial-gradient(circle at top left, #0d0f1a, #04050a) !important;
+}
+.theme-glass .bg-darkcard {
+  background-color: rgba(13, 17, 30, 0.45) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-color: rgba(99, 102, 241, 0.1) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+}
+

@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { JournalEditor } from './pages/JournalEditor';
 import { Timeline } from './pages/Timeline';
 import { Analytics } from './pages/Analytics';
+import { Settings } from './pages/Settings';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -38,6 +39,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Analytics />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             } 
           />

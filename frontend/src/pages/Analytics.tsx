@@ -123,6 +123,12 @@ export const Analytics: React.FC = () => {
           >
             Analytics
           </Link>
+          <Link 
+            to="/settings" 
+            className="text-xs text-gray-400 hover:text-gray-200 px-4 py-1.5 rounded-full transition-colors font-medium"
+          >
+            Settings
+          </Link>
         </nav>
 
         {/* Right action tools */}

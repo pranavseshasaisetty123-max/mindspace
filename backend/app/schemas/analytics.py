@@ -6,6 +6,11 @@ class SummaryAnalytics(BaseModel):
     streak_days: int
     average_mood: float
     average_sleep: float
+    longest_writing_streak: int
+    total_words_written: int
+    average_words_per_journal: float
+    entries_this_week: int
+    total_ai_reflections: int
 
 class TrendData(BaseModel):
     date: str

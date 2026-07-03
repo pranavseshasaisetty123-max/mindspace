@@ -18,8 +18,8 @@ from app.schemas.analytics import (
 
 logger = logging.getLogger("mindspace.analytics")
 
-async def get_writing_streak(db: AsyncSession, user_id: int) -> int:
-    """Calculate the consecutive days streak for a user's active journal logs."""
+async def get_parsed_dates(db: AsyncSession, user_id: int) -> List[date]:
+    """Retrieve and parse unique journal entry dates (sorted descending)."""
     query = (
         select(func.date(JournalEntry.created_at).label("entry_date"))
         .filter(JournalEntry.user_id == user_id, JournalEntry.deleted_at == None)
@@ -29,9 +29,6 @@ async def get_writing_streak(db: AsyncSession, user_id: int) -> int:
     result = await db.execute(query)
     raw_dates = [row.entry_date for row in result.all()]
     
-    if not raw_dates:
-        return 0
-
     parsed_dates = []
     for d in raw_dates:
         if isinstance(d, str):
@@ -44,11 +41,18 @@ async def get_writing_streak(db: AsyncSession, user_id: int) -> int:
         elif isinstance(d, datetime):
             parsed_dates.append(d.date())
 
-    parsed_dates = sorted(list(set(parsed_dates)), reverse=True)
+    return sorted(list(set(parsed_dates)), reverse=True)
+
+async def get_writing_streak(db: AsyncSession, user_id: int) -> int:
+    """Calculate the current consecutive days streak for a user."""
+    parsed_dates = await get_parsed_dates(db, user_id)
+    if not parsed_dates:
+        return 0
 
     today = date.today()
     yesterday = today - timedelta(days=1)
 
+    # If the latest entry is older than yesterday, the streak is currently broken
     if parsed_dates[0] < yesterday:
         return 0
 
@@ -61,6 +65,28 @@ async def get_writing_streak(db: AsyncSession, user_id: int) -> int:
             break
             
     return streak
+
+async def get_longest_writing_streak(db: AsyncSession, user_id: int) -> int:
+    """Calculate the longest consecutive days writing streak historically."""
+    parsed_dates = await get_parsed_dates(db, user_id)
+    if not parsed_dates:
+        return 0
+
+    # Sort ascending for forward chronological traversal
+    dates = sorted(parsed_dates)
+    
+    max_streak = 1
+    current_streak = 1
+    
+    for i in range(len(dates) - 1):
+        diff = dates[i+1] - dates[i]
+        if diff.days == 1:
+            current_streak += 1
+        elif diff.days > 1:
+            max_streak = max(max_streak, current_streak)
+            current_streak = 1
+            
+    return max(max_streak, current_streak)
 
 async def get_tag_distribution(db: AsyncSession, user_id: int) -> List[TagCount]:
     """Retrieve frequency distribution counts for tags mapped to user journal entries."""
@@ -117,7 +143,7 @@ async def get_trends(db: AsyncSession, user_id: int, days_limit: int, interval: 
 
 async def get_dashboard_analytics(db: AsyncSession, user_id: int, days_limit: int = 30, interval: str = "daily") -> DashboardAnalyticsResponse:
     """Consolidate total counts, streaks, trends, and tags into a single response payload."""
-    # 1. Total reflections
+    # 1. Total reflections (active journals count)
     count_query = select(func.count(JournalEntry.id)).filter(
         JournalEntry.user_id == user_id, 
         JournalEntry.deleted_at == None
@@ -139,21 +165,68 @@ async def get_dashboard_analytics(db: AsyncSession, user_id: int, days_limit: in
     average_mood = float(round(avg_row.mood or 0, 1)) if avg_row else 0.0
     average_sleep = float(round(avg_row.sleep or 0, 1)) if avg_row else 0.0
 
-    # 3. Writing streak days
+    # 3. Streak days
     streak_days = await get_writing_streak(db, user_id)
+    longest_writing_streak = await get_longest_writing_streak(db, user_id)
+
+    # 4. Word Counts (Total and Average) - Dialect Safe
+    content_query = select(JournalEntry.content).filter(
+        JournalEntry.user_id == user_id,
+        JournalEntry.deleted_at == None
+    )
+    content_res = await db.execute(content_query)
+    contents = content_res.scalars().all()
+    
+    total_words_written = 0
+    for text in contents:
+        if text:
+            total_words_written += len(text.split())
+            
+    average_words_per_journal = (
+        float(round(total_words_written / total_reflections, 1)) 
+        if total_reflections > 0 
+        else 0.0
+    )
+
+    # 5. Entries this week (Monday to Sunday)
+    today = date.today()
+    start_of_week = today - timedelta(days=today.weekday())
+    start_datetime = datetime.combine(start_of_week, datetime.min.time())
+    
+    week_query = select(func.count(JournalEntry.id)).filter(
+        JournalEntry.user_id == user_id,
+        JournalEntry.deleted_at == None,
+        JournalEntry.created_at >= start_datetime
+    )
+    week_res = await db.execute(week_query)
+    entries_this_week = week_res.scalar() or 0
+
+    # 6. Total AI Reflections
+    ai_query = (
+        select(func.count(AIReflection.id))
+        .join(JournalEntry, JournalEntry.id == AIReflection.journal_id)
+        .filter(JournalEntry.user_id == user_id, JournalEntry.deleted_at == None)
+    )
+    ai_res = await db.execute(ai_query)
+    total_ai_reflections = ai_res.scalar() or 0
 
     summary = SummaryAnalytics(
         total_reflections=total_reflections,
         streak_days=streak_days,
         average_mood=average_mood,
-        average_sleep=average_sleep
+        average_sleep=average_sleep,
+        longest_writing_streak=longest_writing_streak,
+        total_words_written=total_words_written,
+        average_words_per_journal=average_words_per_journal,
+        entries_this_week=entries_this_week,
+        total_ai_reflections=total_ai_reflections
     )
 
-    # 4. Fetch trends & tag frequencies
+    # 7. Fetch trends & tag frequencies
     trends = await get_trends(db, user_id, days_limit, interval)
     tag_distribution = await get_tag_distribution(db, user_id)
 
-    # 5. Fetch top 3 recent AI reflections
+    # 8. Fetch top 3 recent AI reflections
     reflections_query = (
         select(AIReflection)
         .join(JournalEntry, JournalEntry.id == AIReflection.journal_id)

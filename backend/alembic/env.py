@@ -18,7 +18,7 @@ if config.config_file_name is not None:
 # Import configuration and declarative metadata
 from app.config import settings
 from app.database import Base
-from app.models.user import User  # Imported so Alembic autogenerates user schemas
+from app.models import User, JournalEntry, Tag, AIReflection, UserSettings
 
 target_metadata = Base.metadata
 

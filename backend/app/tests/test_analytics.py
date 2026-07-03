@@ -33,6 +33,11 @@ async def test_analytics_dashboard_empty(auth_headers):
         assert data["summary"]["streak_days"] == 0
         assert data["summary"]["average_mood"] == 0.0
         assert data["summary"]["average_sleep"] == 0.0
+        assert data["summary"]["longest_writing_streak"] == 0
+        assert data["summary"]["total_words_written"] == 0
+        assert data["summary"]["average_words_per_journal"] == 0.0
+        assert data["summary"]["entries_this_week"] == 0
+        assert data["summary"]["total_ai_reflections"] == 0
         
         assert len(data["trends"]) == 0
         assert len(data["tag_distribution"]) == 0
@@ -63,6 +68,10 @@ async def test_analytics_dashboard_aggregation(auth_headers):
         assert data["summary"]["streak_days"] == 1
         assert data["summary"]["average_mood"] == 3.0  # (4 + 2) / 2
         assert data["summary"]["average_sleep"] == 7.0  # (8.0 + 6.0) / 2
+        assert data["summary"]["total_words_written"] == 4
+        assert data["summary"]["average_words_per_journal"] == 2.0
+        assert data["summary"]["entries_this_week"] == 2
+        assert data["summary"]["longest_writing_streak"] == 1
         
         # Verify trends length and values
         assert len(data["trends"]) == 1
