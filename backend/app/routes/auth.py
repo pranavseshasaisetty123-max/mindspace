@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserRegister, UserLogin, UserResponse, TokenResponse
 from app.services.auth_utils import hash_password, verify_password, create_access_token, verify_access_token
+from app.utils.security import rate_limit_auth
 
 logger = logging.getLogger("mindspace.auth")
 router = APIRouter(tags=["auth"])
@@ -47,7 +48,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         422: {"description": "Validation error (invalid email format or weak password)."}
     }
 )
-async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
+async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db), _rate_limit = Depends(rate_limit_auth)):
     """Register a new user account, hash their password, and save to the database."""
     result = await db.execute(select(User).filter(User.email == user_data.email))
     existing_user = result.scalars().first()
@@ -76,7 +77,7 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
         422: {"description": "Validation error (invalid data types)."}
     }
 )
-async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db), _rate_limit = Depends(rate_limit_auth)):
     """Authenticate user credentials (email/password) and issue a signed access token."""
     result = await db.execute(select(User).filter(User.email == credentials.email))
     user = result.scalars().first()

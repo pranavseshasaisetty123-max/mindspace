@@ -54,11 +54,11 @@ async def create_journal_entry(db: AsyncSession, user_id: int, entry_data: Journ
     db.add(db_entry)
     await db.commit()
     
-    # Eagerly load the tags relationship to prevent lazy-load errors during serialization
+    # Eagerly load the tags and reflection relationships to prevent lazy-load errors during serialization
     result = await db.execute(
         select(JournalEntry)
         .filter(JournalEntry.id == db_entry.id)
-        .options(selectinload(JournalEntry.tags))
+        .options(selectinload(JournalEntry.tags), selectinload(JournalEntry.reflection))
     )
     refreshed_entry = result.scalars().first()
     logger.info(f"User ID {user_id} created journal entry ID {refreshed_entry.id} with {len(tag_objects)} tags.")
@@ -79,7 +79,7 @@ async def get_journal_entries(
     query = select(JournalEntry).filter(
         JournalEntry.user_id == user_id,
         JournalEntry.deleted_at == None
-    ).options(selectinload(JournalEntry.tags))
+    ).options(selectinload(JournalEntry.tags), selectinload(JournalEntry.reflection))
 
     if mood is not None:
         query = query.filter(JournalEntry.mood == mood)
@@ -111,7 +111,7 @@ async def get_journal_entry_by_id(db: AsyncSession, user_id: int, entry_id: int)
     query = select(JournalEntry).filter(
         JournalEntry.id == entry_id,
         JournalEntry.deleted_at == None
-    ).options(selectinload(JournalEntry.tags))
+    ).options(selectinload(JournalEntry.tags), selectinload(JournalEntry.reflection))
     
     result = await db.execute(query)
     entry = result.scalars().first()

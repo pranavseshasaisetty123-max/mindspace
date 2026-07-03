@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, api } from '../contexts/AuthContext';
 import { DashboardLoader } from '../components/SkeletonLoaders';
-import { Brain, LogOut, Sparkles, BookOpen, PenLine, Flame, ShieldAlert } from 'lucide-react';
+import { Brain, LogOut, Sparkles, BookOpen, PenLine, Flame, ShieldAlert, RotateCcw } from 'lucide-react';
 
 interface Journal {
   id: number;
@@ -21,6 +21,8 @@ export const Dashboard: React.FC = () => {
   const [moodAvg, setMoodAvg] = useState<number | null>(null);
   const [reflectionScore, setReflectionScore] = useState(0);
   const [recentJournals, setRecentJournals] = useState<Journal[]>([]);
+  const [error, setError] = useState<boolean>(false);
+  const [retryCount, setRetryCount] = useState<number>(0);
 
   // Calculate dynamic greeting based on system hours
   useEffect(() => {
@@ -33,6 +35,7 @@ export const Dashboard: React.FC = () => {
   // Fetch journals to compute statistics dynamically
   useEffect(() => {
     setLoading(true);
+    setError(false);
     api.get('/api/v1/journals?limit=100')
       .then((res) => {
         const journals: Journal[] = res.data;
@@ -89,11 +92,12 @@ export const Dashboard: React.FC = () => {
       })
       .catch((err) => {
         console.error("Failed to compile dashboard metrics:", err);
+        setError(true);
       })
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [retryCount]);
 
   // Format today's date for hero segment
   const todayFormatted = new Date().toLocaleDateString(undefined, {
@@ -149,7 +153,24 @@ export const Dashboard: React.FC = () => {
       {/* Main Focus Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 space-y-12 animate-fade-in">
         
-        {loading ? (
+        {error ? (
+          <div className="bg-red-950/20 border border-red-500/20 rounded-2xl p-8 text-center space-y-4 max-w-md mx-auto my-12">
+            <div className="flex justify-center text-red-400">
+              <ShieldAlert className="h-10 w-10 animate-bounce" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-gray-200">Failed to Retrieve Metrics</h3>
+              <p className="text-xs text-gray-500 font-light">The API service could not load your journal data.</p>
+            </div>
+            <button
+              onClick={() => setRetryCount(prev => prev + 1)}
+              className="inline-flex items-center space-x-1.5 bg-red-950/60 hover:bg-red-950/90 text-red-300 font-bold py-2 px-5 border border-red-500/30 rounded-xl text-xs transition-colors btn-premium focus:outline-none"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Retry Load</span>
+            </button>
+          </div>
+        ) : loading ? (
           <DashboardLoader />
         ) : (
           <>

@@ -127,6 +127,32 @@ MindSpace utilizes a normalized relational schema. Indexes are established on fo
 * `generated_at` (TIMESTAMP, Default: CURRENT_TIMESTAMP)
 * `model_used` (VARCHAR(50), Not Null) -- *e.g., 'gemini-1.5-flash' or 'safety_filter'*
 
+## 🛡️ Production Readiness, Security & Diagnostics
+
+MindSpace implements enterprise-grade production readiness features:
+
+### 1. Database Query Optimizations (N+1 Resolution)
+* **Eager Loading:** Timeline lists and single journal lookups utilize SQLAlchemy's `selectinload` to eager-load associated tags and AI reflections, resolving N+1 latency issues.
+* **Schema Indexes:** Added indexes on `created_at` (for timeline range pagination) and a compound index `ix_journal_entries_user_deleted` on `(user_id, deleted_at)` to optimize lookup performance.
+
+### 2. API Security Mappings
+* **In-Memory Rate Limiting:** Auth endpoints (`/register` and `/login`) are shielded by IP-based sliding-window rate limiters to prevent brute-force attacks.
+* **CORS Whitelisting:** Permissive wildcard (`*`) settings have been replaced with configurable allowed CORS domains loaded from settings (defaulting to safe local hosts in development).
+* **Secure HTTP Response Headers:** Custom middleware automatically injects headers on all API responses:
+  * `X-Frame-Options: DENY` (prevents Clickjacking)
+  * `X-Content-Type-Options: nosniff` (mitigates MIME sniffing)
+  * `X-XSS-Protection: 1; mode=block` (prevents cross-site scripting)
+  * `Content-Security-Policy: default-src 'self';` (mitigates XSS injections)
+  * `Referrer-Policy: strict-origin-when-cross-origin`
+
+### 3. Observability & Request Tracing
+* **X-Request-ID Header:** All incoming API calls are assigned a unique UUID `X-Request-ID` attached to thread execution contexts and log outputs.
+* **Endpoint timing & warnings:** Logs compile exact request duration times in milliseconds and emit warnings if execution durations exceed 800ms.
+
+### 4. Health & Readiness Diagnostics
+* **GET `/health`**: Asserts MySQL database connectivity, checks Gemini API configurations, version parameters, and computes system uptime.
+* **GET `/ready`**: Returns a check status used by orchestrators to confirm if the app instance is ready to receive network traffic.
+
 ---
 
 ## ⚙️ Environment Variables
@@ -140,6 +166,7 @@ The backend uses a `.env` file to manage configurations. Pydantic validates thes
 | `JWT_ALGORITHM` | String | `HS256` | Encrypt signature hashing algorithm used. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Integer | `1440` | Token validity timeframe in minutes (24 hours). |
 | `GEMINI_API_KEY` | String | `mock-key-for-local-testing` | API Key used to call Google Gemini. Fallbacks mock-key locally for tests. |
+| `ALLOWED_CORS_ORIGINS` | String | *See config.py* | Comma-separated list of whitelisted CORS domains. |
 
 ---
 
@@ -147,8 +174,8 @@ The backend uses a `.env` file to manage configurations. Pydantic validates thes
 
 | Protocol | Endpoint | Authorization | Status Codes | Description |
 |---|---|---|---|---|
-| **POST** | `/api/v1/auth/register` | None | 201, 400, 422 | Register user account. Requires valid email & strong password. |
-| **POST** | `/api/v1/auth/login` | None | 200, 401, 422 | Authenticate and retrieve bearer access tokens. |
+| **POST** | `/api/v1/auth/register` | None | 201, 400, 422, 429 | Register user account. Requires valid email & strong password. Protected by rate limiting. |
+| **POST** | `/api/v1/auth/login` | None | 200, 401, 422, 429 | Authenticate and retrieve bearer access tokens. Protected by rate limiting. |
 | **GET** | `/api/v1/profile` | Bearer Token | 200, 401 | Retrieve profile details of the active user. |
 | **POST** | `/api/v1/journals` | Bearer Token | 201, 400, 401, 422 | Create new journal entry with metric ratings and tag list. |
 | **GET** | `/api/v1/journals` | Bearer Token | 200, 401 | List user journals. Supports filters: `mood`, `tag`, `start_date`, `end_date`, `search`. |
@@ -157,6 +184,8 @@ The backend uses a `.env` file to manage configurations. Pydantic validates thes
 | **DELETE** | `/api/v1/journals/{id}` | Bearer Token | 200, 401, 403, 404 | Soft delete entry (sets `deleted_at` timestamp). |
 | **POST** | `/api/v1/journals/{id}/generate-reflection` | Bearer Token | 200, 401, 403, 404, 502 | Trigger Google Gemini reflection insights generation (or update cache). |
 | **GET** | `/api/v1/journals/{id}/reflection` | Bearer Token | 200, 401, 403, 404 | Retrieve cached AI reflection, returns 404 if stale or missing. |
+| **GET** | `/health` | None | 200, 500 | Diagnoses database health, Gemini setups, uptime, and versions. |
+| **GET** | `/ready` | None | 200, 503 | Readiness check used for deployment orchestrators. |
 
 ---
 

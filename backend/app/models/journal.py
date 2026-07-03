@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, DateTime, func, Numeric, CheckConstraint
+from sqlalchemy import Table, Column, Integer, String, Text, ForeignKey, DateTime, func, Numeric, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -24,6 +24,10 @@ class Tag(Base):
 class JournalEntry(Base):
     __tablename__ = "journal_entries"
 
+    __table_args__ = (
+        Index('ix_journal_entries_user_deleted', 'user_id', 'deleted_at'),
+    )
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(255), nullable=False)
@@ -36,7 +40,7 @@ class JournalEntry(Base):
     sleep_hours = Column(Numeric(4, 2), CheckConstraint("sleep_hours >= 0.0"), nullable=False)
     
     # Timestamps
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False, index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     deleted_at = Column(DateTime, nullable=True, index=True)  # Soft delete timestamp
 
