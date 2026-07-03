@@ -10,6 +10,7 @@ from app.config import settings
 from app.routes.auth import router as auth_router
 from app.routes.journal import router as journal_router
 from app.routes.reflection import router as reflection_router
+from app.routes.analytics import router as analytics_router
 
 # Setup structured logger
 logging.basicConfig(
@@ -70,6 +71,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(journal_router)
 app.include_router(reflection_router)
+app.include_router(analytics_router)
 
 # Centralized global exception handlers
 @app.exception_handler(StarletteHTTPException)

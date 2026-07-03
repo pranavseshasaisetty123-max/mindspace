@@ -5,6 +5,7 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { JournalEditor } from './pages/JournalEditor';
 import { Timeline } from './pages/Timeline';
+import { Analytics } from './pages/Analytics';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -29,6 +30,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Timeline />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/analytics" 
+            element={
+              <ProtectedRoute>
+                <Analytics />
               </ProtectedRoute>
             } 
           />

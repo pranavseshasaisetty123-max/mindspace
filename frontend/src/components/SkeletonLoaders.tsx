@@ -65,3 +65,25 @@ export const TimelineLoader: React.FC = () => {
     </div>
   );
 };
+
+export const AnalyticsLoader: React.FC = () => {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((n) => (
+          <div key={n} className="bg-darkcard border border-darkborder rounded-2xl h-24"></div>
+        ))}
+      </div>
+      
+      <div className="bg-darkcard border border-darkborder rounded-2xl p-6 h-96 flex flex-col justify-between">
+        <div className="h-6 bg-darkborder rounded w-1/4"></div>
+        <div className="h-64 bg-darkbg border border-darkborder/50 rounded-xl"></div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-darkcard border border-darkborder rounded-2xl p-6 h-80 col-span-1"></div>
+        <div className="bg-darkcard border border-darkborder rounded-2xl p-6 h-80 col-span-2"></div>
+      </div>
+    </div>
+  );
+};

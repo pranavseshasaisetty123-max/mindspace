@@ -163,6 +163,9 @@ export const Timeline: React.FC = () => {
           <span className="text-sm font-semibold text-indigo-400 border-b-2 border-indigo-500 pb-1.5 pt-1">
             Timeline
           </span>
+          <Link to="/analytics" className="text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors pb-1.5 pt-1">
+            Analytics
+          </Link>
           <Link to="/journal/new" className="text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors pb-1.5 pt-1 flex items-center space-x-1">
             <PenLine className="h-4 w-4" />
             <span>Write</span>

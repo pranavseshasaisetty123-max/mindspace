@@ -236,6 +236,9 @@ export const JournalEditor: React.FC = () => {
           <Link to="/timeline" className="text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors pb-1.5 pt-1">
             Timeline
           </Link>
+          <Link to="/analytics" className="text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors pb-1.5 pt-1">
+            Analytics
+          </Link>
           <span className="text-sm font-semibold text-indigo-400 border-b-2 border-indigo-500 pb-1.5 pt-1">
             Editor
           </span>
