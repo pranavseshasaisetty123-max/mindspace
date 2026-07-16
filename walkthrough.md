@@ -77,6 +77,25 @@ app/tests/test_settings.py ...                                           [100%]
 ======================= 36 passed, 6 warnings in 13.64s ========================
 ```
 
-### 2. Frontend Compiles
-* **Linter Validation:** `npm run lint` -> Passed.
-* **Vite Production Compile:** `npm run build` -> Succeeded in 1.87 seconds.
+* **Vite Production Compile:** `npm run build` -> Succeeded.
+
+---
+
+## 🛠️ Post-Sprint 6 Troubleshooting & Resolutions
+
+### 1. Port 8000 Conflict & Validation Failures
+* **Issue:** Every login attempt was returning a `422 Unprocessable Entity` with `"Field required, Field required"` displayed in the browser.
+* **Root Cause:** A rogue Python/Uvicorn process on the host was listening on port `8000`, intercepting the frontend requests meant for the Docker container. This rogue server expected standard OAuth2 form-data (`username`/`password`), whereas the MindSpace frontend sent JSON (`email`/`password`), resulting in validation failure.
+* **Resolution:** 
+  1. Identified and terminated the rogue process (`PID 39366`).
+  2. Stopped duplicate containers (`agriassist-api`, `agriassist-ui`) sharing ports 8000 and 3000.
+
+### 2. Backend Container Restart Resilience (DNS Stabilization)
+* **Issue:** `mindspace_backend` container was stuck in a restart loop due to transient name resolution errors (`pymysql.err.OperationalError: Can't connect to MySQL server on 'db' - Temporary failure in name resolution`) during migrations.
+* **Root Cause:** Alembic was executing immediately on container start before Docker's internal DNS network resolved the `db` host.
+* **Resolution:** Updated the startup command in `docker-compose.yml` to sleep 5 seconds before running migrations:
+  ```yaml
+  command: sh -c "sleep 5 && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+  ```
+  This allows the container networking layer to stabilize.
+
