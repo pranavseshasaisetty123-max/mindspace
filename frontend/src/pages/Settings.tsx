@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, api } from '../contexts/AuthContext';
+import { parseApiError } from '../utils/errorParser';
 import { 
   Brain, 
   LogOut, 
@@ -56,7 +57,7 @@ export const Settings: React.FC = () => {
         setTheme(res.data.theme);
       } catch (err) {
         console.error('Failed to load user settings:', err);
-        showToast('Failed to load preferences.', 'error');
+        showToast(parseApiError(err), 'error');
       } finally {
         setLoading(false);
       }
@@ -89,8 +90,7 @@ export const Settings: React.FC = () => {
       setTheme(res.data.theme);
     } catch (err: any) {
       console.error('Failed to save settings:', err);
-      const detail = err.response?.data?.detail;
-      showToast(typeof detail === 'string' ? detail : 'Failed to save settings changes.', 'error');
+      showToast(parseApiError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -117,7 +117,7 @@ export const Settings: React.FC = () => {
       showToast('Export downloaded successfully!', 'success');
     } catch (err: any) {
       console.error('Failed to export history:', err);
-      showToast('Failed to compile export file.', 'error');
+      showToast(parseApiError(err), 'error');
     } finally {
       setExporting(false);
     }

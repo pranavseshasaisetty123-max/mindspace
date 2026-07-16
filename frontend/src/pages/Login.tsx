@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Brain, Lock, Mail } from 'lucide-react';
+import { parseApiError } from '../utils/errorParser';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -20,10 +21,7 @@ export const Login: React.FC = () => {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      setError(
-        err.response?.data?.detail || 
-        'Incorrect email or password. Please check your credentials and try again.'
-      );
+      setError(parseApiError(err));
     } finally {
       setSubmitting(false);
     }

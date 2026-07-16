@@ -25,6 +25,12 @@ export const api = axios.create({
   baseURL: BACKEND_URL,
 });
 
+// Synchronously configure Authorization header on initial load if token exists in localStorage
+const initialToken = localStorage.getItem('token');
+if (initialToken) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${initialToken}`;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [user, setUser] = useState<User | null>(null);
@@ -33,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Set HTTP headers on token modification or user session initialization
   useEffect(() => {
     if (token) {
+      setLoading(true);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       localStorage.setItem('token', token);
       
@@ -57,8 +64,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [token]);
 
   const login = async (email: string, password: string) => {
-    const res = await api.post('/api/v1/auth/login', { email, password });
-    setToken(res.data.access_token);
+    setLoading(true);
+    try {
+      const res = await api.post('/api/v1/auth/login', { email, password });
+      const tokenVal = res.data.access_token;
+      
+      // Synchronously set headers and localStorage so subsequent queries immediately have it
+      api.defaults.headers.common['Authorization'] = `Bearer ${tokenVal}`;
+      localStorage.setItem('token', tokenVal);
+      setToken(tokenVal);
+    } catch (err) {
+      setLoading(false);
+      throw err;
+    }
   };
 
   const register = async (email: string, password: string) => {
@@ -66,8 +84,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    delete api.defaults.headers.common['Authorization'];
+    localStorage.removeItem('token');
     setToken(null);
     setUser(null);
+    setLoading(false);
   };
 
   return (

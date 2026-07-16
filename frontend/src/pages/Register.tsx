@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Brain, Lock, Mail } from 'lucide-react';
+import { parseApiError } from '../utils/errorParser';
 
 export const Register: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -36,10 +37,7 @@ export const Register: React.FC = () => {
         navigate('/login');
       }, 2000);
     } catch (err: any) {
-      setError(
-        err.response?.data?.detail || 
-        'An error occurred during registration. Please check your credentials and try again.'
-      );
+      setError(parseApiError(err));
       setSubmitting(false);
     }
   };

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth, api } from '../contexts/AuthContext';
 import { Brain, LogOut, ArrowLeft, Trash2, Sparkles, X, Plus, Check, ShieldAlert } from 'lucide-react';
+import { parseApiError } from '../utils/errorParser';
 
 interface TagResponse {
   id: number;
@@ -181,8 +182,7 @@ export const JournalEditor: React.FC = () => {
       setReflection(res.data);
     } catch (err: any) {
       console.error("AI Reflection Generation failed:", err);
-      const detail = err.response?.data?.detail || "AI reflection service currently unavailable. Please try again.";
-      setAiError(detail);
+      setAiError(parseApiError(err));
     } finally {
       setGenerating(false);
     }
